@@ -46,10 +46,10 @@ def plot_losses(metrics, epoch):
 def plot_prediction(signal, epoch = 0):
     plt.figure()
     axes = plt.gca()
-    axes.set_ylim([-1.0,1.0])
+    axes.set_ylim([-3.0,3.0])
     plt.plot(signal[0], label='Generated Signal')
     plt.xlabel('Epoch' + str(epoch))
-    plt.ylabel('EMG')
+    plt.ylabel('ACC')
     plt.legend()
     plt.savefig('./output/Generated_' + str(epoch) + '.png')
     #plt.show()

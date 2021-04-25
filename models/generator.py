@@ -44,7 +44,7 @@ class Generator():
 
     def __init__(self, args, training = False):
         self.noise_dim = args['noise_dim']
-        self.channels = args['channels']
+        self.channels = len(args['features'])
         self.conv_activation = args['conv_activation']
         self.activation_function = args['activation_function']
         self.num_steps = args['num_steps']
@@ -63,7 +63,7 @@ class Generator():
             z (tensor): sampled latent vector
         """
         input_ = args
-        sliding_window = tf.contrib.signal.frame(
+        sliding_window = tf.signal.frame(
             input_,
             self.sliding_window,
             1,#steps
@@ -79,23 +79,23 @@ class Generator():
     def build_generator(self):
     
         model = Sequential()
-        model.add(Reshape((self.noise_dim,self.channels), input_shape=(self.noise_dim,)))
-        model.add(Conv1D(128, kernel_size=4, padding="same", data_format="channels_last"))
+        #model.add(Reshape((self.noise_dim, self.channels), input_shape=(self.noise_dim, self.channels)))
+        model.add(Conv1D(512, kernel_size=16, padding="same", data_format="channels_last", input_shape=(self.noise_dim, self.channels)))
         model.add(BatchNormalization(momentum=0.8))
         model.add(Activation(self.conv_activation))
         model.add(UpSampling1D())
-        model.add(Conv1D(128, kernel_size=4, padding="same"))
+        model.add(Conv1D(512, kernel_size=16, padding="same"))
         model.add(BatchNormalization(momentum=0.8))
         model.add(Activation(self.conv_activation))
         model.add(UpSampling1D())
-        model.add(Conv1D(64, kernel_size=4, padding="same"))
+        model.add(Conv1D(256, kernel_size=16, padding="same"))
         model.add(BatchNormalization(momentum=0.8))
         model.add(Activation(self.conv_activation))
         model.add(UpSampling1D())
-        model.add(Conv1D(32, kernel_size=4, padding="same"))
+        model.add(Conv1D(128, kernel_size=16, padding="same"))
         model.add(BatchNormalization(momentum=0.8))
         model.add(Activation(self.conv_activation))
-        model.add(Conv1D(16, kernel_size=4, padding="same"))
+        model.add(Conv1D(64, kernel_size=16, padding="same"))
         model.add(BatchNormalization(momentum=0.8))
         model.add(Activation(self.conv_activation))
         model.add(Conv1D(self.channels, kernel_size=4, padding="same"))        
@@ -104,7 +104,7 @@ class Generator():
         model.add(Flatten())
         model.add(Dense(self.num_steps * self.channels))
         model.add(Activation(self.activation_function))
-        model.add(Reshape((self.num_steps,self.channels)))
+        model.add(Reshape((self.num_steps, self.channels)))
         
         if self.sliding_window > 0:
             model.add(Lambda(self.moving_avg, output_shape=self.seq_shape, name='mvg_avg'))
@@ -117,8 +117,8 @@ class Generator():
             with open('./output/generator.json', "w") as json_file:
                 json_file.write(model_json)
                 
-            file_name = './output/generator.png'
-            plot_model(model, to_file=file_name, show_shapes = True)        
+            # file_name = './output/generator.png'
+            # plot_model(model, to_file=file_name, show_shapes = True)        
     
         return model
     

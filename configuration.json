@@ -1,34 +1,35 @@
 {
 	"train_split": 0.8, 
 	"channels": 1, 
-	"num_steps": 2000, 
-	"noise_dim": 400,
+	"num_steps": 40, 
+	"noise_dim": 100,
 	"use_random_noise": true,
 
-	"learning_rate": 0.0002,
+	"learning_rate": 0.001,
 
-	"training_file": "./data/pd_patient_1_emg.csv",
-	"features": ["FLEXOR_EMG_FILTERED"],
-	"rescale": true,
+	"training_file": "../../data/herbivores/cleaned_data/merged_sheep.csv",
+	"features": ["X", "Y", "Z", "Mag_x", "Mag_y", "Mag_z"],
+	"labels": ["Walk"],
+	"rescale": false,
 
 	"conv_activation": "relu",
 	"activation_function": "tanh", 
-	"moving_avg_window": 100, 
+	"moving_avg_window": 10, 
 	"wavelet_mother": "db7", 
 	"wavelet_levels": 2, 
 	"wavelet_trainable": false, 
 	"use_mini_batch": true,
-	"sliding_window": 10,	
+	"sliding_window": 0,	
 	"loss_function": "binary_crossentropy",
 	"optimizer": "adam",
 	"metrics": ["accuracy"],
 
-	"dropout_rate": 0.2, 
+	"dropout_rate": 0.5, 
 
-	"sample_interval": 1000,
-	"epochs": 5000,
-	"batch_size": 100,
-	"save_sample": false,
-	"plot_losses": false,
-	"save_models": false
+	"sample_interval": 50,
+	"epochs": 500,
+	"batch_size": 50,
+	"save_sample": true,
+	"plot_losses": true,
+	"save_models": true
 }

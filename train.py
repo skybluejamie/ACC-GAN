@@ -24,7 +24,7 @@ def train(config):
             # Select a random batch of signals
             signals = data_loader.get_training_batch()
 
-            # Generate latent noise for generator
+            # # Generate latent noise for generator
             noise = dcgan.generate_noise(signals)
 
             # Generate a batch of new fake signals and evaluate them against the discriminator
@@ -34,7 +34,7 @@ def train(config):
             #Sample real and fake signals
                        
             # ---------------------
-            #  Calculate metrics
+            #  Calculate metricsq
             # ---------------------
             
             # Calculate metrics on best fake data
@@ -61,9 +61,14 @@ def train(config):
             # ---------------------
 
             g_loss = dcgan.combined.train_on_batch(noise, valid) #train combined model
-            
+            #g_loss = dcgan.combined.train_on_batch(signals, valid) #train combined model
+
             # Plot the progress
-            print ("%d [D loss: %f, acc: %f] [G loss: %f] [FFT Metric: %f] [DTW Metric: %f] [CC Metric: %f]" % (epoch, d_loss[0], d_loss[1], g_loss, fft_metric, dtw_metric, cc_metric[0]))
+            print (
+                "%d [D loss: %f, acc: %f] [G loss: %f] [FFT Metric: %f] [DTW Metric: %f] [CC Metric: %f]" % (
+                    epoch, d_loss[0], d_loss[1], g_loss, fft_metric, dtw_metric, cc_metric[0]
+                )
+            )
             metrics.append([[d_loss[0]],[g_loss],[fft_metric],[dtw_metric], [cc_metric[0]]])
 
             # If at save interval => save generated image samples

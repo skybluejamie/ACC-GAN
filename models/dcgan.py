@@ -56,7 +56,7 @@ class DCGAN():
         self.learning_rate = args["learning_rate"]  # Learning rate
         self.loss_function = args["loss_function"]  # loss_function
         self.metrics = args["metrics"] # metrics
-        self.channels = args['channels']
+        self.channels = len(args['features'])
         self.batch_size = args['batch_size']
         self.num_steps = args['num_steps']
         self.seq_shape = (self.num_steps, self.channels)
@@ -65,11 +65,12 @@ class DCGAN():
         self.training_mode = training
 
         # Following parameter and optimizer set as recommended in paper
-        self.optimizer = Adam(lr=self.learning_rate)
+        self.critic_optimizer = Adam(lr=self.learning_rate/100)
+        self.combined_optimizer = Adam(lr=self.learning_rate/100)
 
         # Build and compile the critic
         self.critic = Discriminator(args, training)
-        self.critic.model.compile(loss=self.loss_function, optimizer=self.optimizer, metrics=self.metrics)
+        self.critic.model.compile(loss=self.loss_function, optimizer=self.critic_optimizer, metrics=self.metrics)
 
         # Build the generator
         self.generator = Generator(args, training)
@@ -77,7 +78,8 @@ class DCGAN():
         # Build de combined model (generator => critic)
 
         # The generator takes latent space as input and generates fake signal as output
-        z = Input(shape=(self.noise_dim,))
+        z = Input(shape=(self.noise_dim, self.channels))
+        #z = Input(shape=(self.num_steps, self.channels))
         signal = self.generator.model(z)
 
         # For the combined model we will only train the generator
@@ -88,7 +90,7 @@ class DCGAN():
 
         # The combined model  (stacked generator and critic) - try to minimize the loss
         self.combined = Model(z, valid)
-        self.combined.compile(loss='binary_crossentropy', optimizer=self.optimizer)
+        self.combined.compile(loss='binary_crossentropy', optimizer=self.combined_optimizer)
     
     def save_critic(self, index = -1):
         self.critic.save(index)
@@ -100,7 +102,6 @@ class DCGAN():
         self.generator.load(index)
         self.critic.load(index)
 
-    
     def save_sample(self, epoch, signals):
         
         # Generate latent noise
@@ -112,18 +113,18 @@ class DCGAN():
         #Evaluate with critic
         critic_signal = self.critic.predict(gen_signal)
         
-        #Reshape for saving on csv
-        gen_signal = np.reshape(gen_signal, (gen_signal.shape[0],gen_signal.shape[1]))
-        critic_signal = np.reshape(critic_signal, (critic_signal.shape[0],critic_signal.shape[1]))
-        np.savetxt('./output/Noise_' + str(epoch) + '.csv', noise, delimiter=",")
-        np.savetxt('./output/Generated_' + str(epoch) + '.csv', gen_signal, delimiter=",")
-        np.savetxt('./output/Validated_' + str(epoch) + '.csv', critic_signal, delimiter=",")
+        # #Reshape for saving on csv
+        # gen_signal = np.reshape(gen_signal, (gen_signal.shape[0], gen_signal.shape[1], gen_signal.shape[2]))
+        # critic_signal = np.reshape(critic_signal, (critic_signal.shape[0], critic_signal.shape[1]))
+        # np.savetxt('./output/Noise_' + str(epoch) + '.csv', noise, delimiter=",")
+        # np.savetxt('./output/Generated_' + str(epoch) + '.csv', gen_signal, delimiter=",")
+        # np.savetxt('./output/Validated_' + str(epoch) + '.csv', critic_signal, delimiter=",")
         
-        #Plot the reference signal
-        ref_signal = signals[:,:,:]
-        ref_signal = np.reshape(ref_signal, (ref_signal.shape[0],ref_signal.shape[1]))
-        plot_reference(ref_signal, epoch)
-        np.savetxt('./output/Reference_' + str(epoch) + '.csv', ref_signal, delimiter=",")
+        # #Plot the reference signal
+        # ref_signal = signals[:,:,:]
+        # ref_signal = np.reshape(ref_signal, (ref_signal.shape[0],ref_signal.shape[1], ref_signal.shape[2]))
+        # plot_reference(ref_signal, epoch)
+        # np.savetxt('./output/Reference_' + str(epoch) + '.csv', ref_signal, delimiter=",")
         
         #Plot the generated signals with epoch
         plot_prediction(gen_signal, epoch)
@@ -137,9 +138,10 @@ class DCGAN():
         
             #Alternative - use senoid as input also is possible, and give good results
             x = np.linspace(-np.pi, np.pi, self.noise_dim)
-            noise = 0.1 * np.random.random_sample((self.batch_size,self.noise_dim)) + 0.9 * np.sin(x)
+            x = (0.9 * np.sin(x)).reshape(self.noise_dim, 1)
+            noise = 0.1 * np.random.random_sample((self.batch_size, self.noise_dim, self.channels)) + x
         # Sample input data as generator input
         else:
-            noise = signals[:,0:self.noise_dim,:]
-            noise = np.reshape(noise,(noise.shape[0],noise.shape[1]))
+            noise = signals[:, 0:self.noise_dim, :]
+            noise = np.reshape(noise, (noise.shape[0], self.noise_dim, noise.shape[2]))
         return noise

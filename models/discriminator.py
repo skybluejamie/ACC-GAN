@@ -167,7 +167,7 @@ class MinibatchDiscrimination(Layer):
 class Discriminator():
     def __init__(self, args, training = False):
         self.noise_dim = args['noise_dim']
-        self.channels = args['channels']
+        self.channels = len(args['features'])
         self.conv_activation = args['conv_activation']
         self.num_steps = args['num_steps']
         self.seq_shape = (self.num_steps, self.channels)
@@ -206,6 +206,7 @@ class Discriminator():
         detail_coefficients = []
 
         last_approximant = input_tensor
+
         for i in range(n_levels):
             lpf = low_pass_filter
             hpf = high_pass_filter
@@ -237,7 +238,7 @@ class Discriminator():
         """
         input_ = args
         abs_envelope = K.abs(input_)
-        envelope = tf.contrib.signal.frame(
+        envelope = tf.signal.frame(
             input_,
             self.moving_avg_window,
             1,#steps
@@ -246,7 +247,7 @@ class Discriminator():
             axis=1,
             name='envelope_moving_average'
         )
-        envelope_reshaped = K.reshape(envelope,(-1,self.num_steps,self.moving_avg_window))
+        envelope_reshaped = K.reshape(envelope,(-1, self.num_steps, self.moving_avg_window))
         envelope_mean = K.mean(envelope_reshaped, axis=2, keepdims=True)
         return envelope_mean
     
@@ -260,95 +261,98 @@ class Discriminator():
         cnn_1 = Conv1D(16, kernel_size=3, strides=2, padding="same", name='raw_conv_1')(input_)        
         cnn_1 = LeakyReLU(alpha=0.2)(cnn_1)
         cnn_1 = Dropout(self.dropout_rate)(cnn_1)
-        cnn_2 = Conv1D(32, kernel_size=3, strides=2, padding="same", name='raw_conv_2')(cnn_1)
+        cnn_2 = Conv1D(16, kernel_size=3, strides=2, padding="same", name='raw_conv_2')(cnn_1)
         cnn_2 = BatchNormalization(momentum=0.8)(cnn_2)
         cnn_2 = LeakyReLU(alpha=0.2)(cnn_2)
         cnn_2 = Dropout(self.dropout_rate)(cnn_2)
-        cnn_3 = Conv1D(64, kernel_size=3, strides=2, padding="same", name='raw_conv_3')(cnn_2)
+        cnn_3 = Conv1D(32, kernel_size=3, strides=2, padding="same", name='raw_conv_3')(cnn_2)
         cnn_3 = BatchNormalization(momentum=0.8)(cnn_3)
         cnn_3 = LeakyReLU(alpha=0.2)(cnn_3)
         cnn_3 = Dropout(self.dropout_rate)(cnn_3)
-        cnn_4_out = Conv1D(32, kernel_size=3, strides=2, padding="same", name='raw_conv_4')(cnn_3)
+        cnn_4_out = Conv1D(64, kernel_size=3, strides=1, padding="same", name='raw_conv_4')(cnn_3)
         cnn_4 = BatchNormalization(momentum=0.8)(cnn_4_out)
         cnn_4 = LeakyReLU(alpha=0.2)(cnn_4)
         cnn_4 = Dropout(self.dropout_rate)(cnn_4)
         cnn_4 = Flatten()(cnn_4)
         
         #CNN on FFT of raw signal
-        fft = Lambda(tf.spectral.rfft)(flat)
+        fft = Lambda(tf.compat.v1.spectral.rfft)(flat)
         fft_abs = Lambda(K.abs)(fft)
         fft_abs = Reshape((-1,1), name='fft_abs')(fft_abs)
         fft_cnn_1 = Conv1D(16, kernel_size=3, strides=2, padding="same", name='fft_conv_1')(fft_abs)
         fft_cnn_1 = LeakyReLU(alpha=0.2)(fft_cnn_1)
         fft_cnn_1 = Dropout(self.dropout_rate)(fft_cnn_1)
-        fft_cnn_2 = Conv1D(32, kernel_size=3, strides=2, padding="same", name='fft_conv_2')(fft_cnn_1)
+        fft_cnn_2 = Conv1D(16, kernel_size=3, strides=2, padding="same", name='fft_conv_2')(fft_cnn_1)
         fft_cnn_2 = BatchNormalization(momentum=0.8)(fft_cnn_2)
         fft_cnn_2 = LeakyReLU(alpha=0.2)(fft_cnn_2)
         fft_cnn_2 = Dropout(self.dropout_rate)(fft_cnn_2)
-        fft_cnn_3 = Conv1D(64, kernel_size=3, strides=2, padding="same", name='fft_conv_3')(fft_cnn_2)
+        fft_cnn_3 = Conv1D(32, kernel_size=3, strides=2, padding="same", name='fft_conv_3')(fft_cnn_2)
         fft_cnn_3 = BatchNormalization(momentum=0.8)(fft_cnn_3)
         fft_cnn_3 = LeakyReLU(alpha=0.2)(fft_cnn_3)
         fft_cnn_3 = Dropout(self.dropout_rate)(fft_cnn_3)
-        fft_cnn_4_out = Conv1D(64, kernel_size=3, strides=2, padding="same", name='fft_conv_4')(fft_cnn_3)
+        fft_cnn_4_out = Conv1D(64, kernel_size=3, strides=3, padding="same", name='fft_conv_4')(fft_cnn_3)
         fft_cnn_4 = BatchNormalization(momentum=0.8)(fft_cnn_4_out)
         fft_cnn_4 = LeakyReLU(alpha=0.2)(fft_cnn_4)
         fft_cnn_4 = Dropout(self.dropout_rate)(fft_cnn_4)        
         fft_cnn_4 = Flatten()(fft_cnn_4)
                 
-        #CNN on FFT of envelope
-        envelope_window = Lambda(self.envelopes, output_shape=self.seq_shape, name='envelope')(input_)
-        envelope_window = Flatten()(envelope_window)
-        envelope_fft = Lambda(tf.spectral.rfft)(envelope_window)
-        envelope_fft_abs = Lambda(K.abs)(envelope_fft)
-        envelope_fft_abs = Reshape((-1,1))(envelope_fft_abs)
-        envelope_cnn_1 = Conv1D(16, kernel_size=3, strides=2, padding="same", name='fft_env_conv_1')(envelope_fft_abs)
-        envelope_cnn_1 = LeakyReLU(alpha=0.2)(envelope_cnn_1)
-        envelope_cnn_1 = Dropout(self.dropout_rate)(envelope_cnn_1)
-        envelope_cnn_2 = Conv1D(32, kernel_size=3, strides=2, padding="same", name='fft_env_conv_2')(envelope_cnn_1)
-        envelope_cnn_2 = BatchNormalization(momentum=0.8)(envelope_cnn_2)
-        envelope_cnn_2 = LeakyReLU(alpha=0.2)(envelope_cnn_2)
-        envelope_cnn_2 = Dropout(self.dropout_rate)(envelope_cnn_2)
-        envelope_cnn_3 = Conv1D(64, kernel_size=3, strides=2, padding="same", name='fft_env_conv_3')(envelope_cnn_2)
-        envelope_cnn_3 = BatchNormalization(momentum=0.8)(envelope_cnn_3)
-        envelope_cnn_3 = LeakyReLU(alpha=0.2)(envelope_cnn_3)
-        envelope_cnn_3 = Dropout(self.dropout_rate)(envelope_cnn_3)
-        envelope_cnn_4_out = Conv1D(64, kernel_size=3, strides=2, padding="same", name='fft_env_conv_4')(envelope_cnn_3)
-        envelope_cnn_4 = BatchNormalization(momentum=0.8)(envelope_cnn_4_out)
-        envelope_cnn_4 = LeakyReLU(alpha=0.2)(envelope_cnn_4)
-        envelope_cnn_4 = Dropout(self.dropout_rate)(envelope_cnn_4)
-        envelope_cnn_4 = Flatten()(envelope_cnn_4)
+        # #CNN on FFT of envelope
+        # envelope_window = Lambda(self.envelopes, output_shape=self.seq_shape, name='envelope')(input_)
+        # envelope_window = Flatten()(envelope_window)
+        # envelope_fft = Lambda(tf.compat.v1.spectral.rfft)(envelope_window)
+        # envelope_fft_abs = Lambda(K.abs)(envelope_fft)
+        # envelope_fft_abs = Reshape((-1,1))(envelope_fft_abs)
+        # envelope_cnn_1 = Conv1D(32, kernel_size=3, strides=2, padding="same", name='fft_env_conv_1')(envelope_fft_abs)
+        # envelope_cnn_1 = LeakyReLU(alpha=0.2)(envelope_cnn_1)
+        # envelope_cnn_1 = Dropout(self.dropout_rate)(envelope_cnn_1)
+        # envelope_cnn_2 = Conv1D(64, kernel_size=3, strides=1, padding="same", name='fft_env_conv_2')(envelope_cnn_1)
+        # envelope_cnn_2 = BatchNormalization(momentum=0.8)(envelope_cnn_2)
+        # envelope_cnn_2 = LeakyReLU(alpha=0.2)(envelope_cnn_2)
+        # envelope_cnn_2 = Dropout(self.dropout_rate)(envelope_cnn_2)
+        # envelope_cnn_3 = Conv1D(64, kernel_size=3, strides=2, padding="same", name='fft_env_conv_3')(envelope_cnn_2)
+        # envelope_cnn_3 = BatchNormalization(momentum=0.8)(envelope_cnn_3)
+        # envelope_cnn_3 = LeakyReLU(alpha=0.2)(envelope_cnn_3)
+        # envelope_cnn_3 = Dropout(self.dropout_rate)(envelope_cnn_3)
+        # envelope_cnn_4_out = Conv1D(128, kernel_size=3, strides=2, padding="same", name='fft_env_conv_4')(envelope_cnn_3)
+        # envelope_cnn_4 = BatchNormalization(momentum=0.8)(envelope_cnn_4_out)
+        # envelope_cnn_4 = LeakyReLU(alpha=0.2)(envelope_cnn_4)
+        # envelope_cnn_4 = Dropout(self.dropout_rate)(envelope_cnn_4)
+        # envelope_cnn_4 = Flatten()(envelope_cnn_4)
         
-        # Wavelet Expansion
-        approx_stack, detail_stack = self.make_wavelet_expansion(input_)
-        features_list = []
-        features_list.extend(detail_stack)
-        features_list.append(approx_stack[-1])
-        wavelet_concatenate = Concatenate(axis=1)(features_list)
-        wavelet_cnn_1 = Conv1D(16, kernel_size=3, strides=2, padding="same", name='wavelet_conv_1')(wavelet_concatenate)
-        wavelet_cnn_1 = LeakyReLU(alpha=0.2)(wavelet_cnn_1)
-        wavelet_cnn_1 = Dropout(self.dropout_rate)(wavelet_cnn_1)
-        wavelet_cnn_2 = Conv1D(32, kernel_size=3, strides=2, padding="same", name='wavelet_conv_2')(wavelet_cnn_1)
-        wavelet_cnn_2 = BatchNormalization(momentum=0.8)(wavelet_cnn_2)
-        wavelet_cnn_2 = LeakyReLU(alpha=0.2)(wavelet_cnn_2)
-        wavelet_cnn_2 = Dropout(self.dropout_rate)(wavelet_cnn_2)
-        wavelet_cnn_3 = Conv1D(64, kernel_size=3, strides=2, padding="same", name='wavelet_conv_3')(wavelet_cnn_2)
-        wavelet_cnn_3 = BatchNormalization(momentum=0.8)(wavelet_cnn_3)
-        wavelet_cnn_3 = LeakyReLU(alpha=0.2)(wavelet_cnn_3)
-        wavelet_cnn_3 = Dropout(self.dropout_rate)(wavelet_cnn_3)
-        wavelet_cnn_4_out = Conv1D(32, kernel_size=3, strides=2, padding="same", name='wavelet_conv_4')(wavelet_cnn_3)
-        wavelet_cnn_4 = BatchNormalization(momentum=0.8)(wavelet_cnn_4_out)
-        wavelet_cnn_4 = LeakyReLU(alpha=0.2)(wavelet_cnn_4)
-        wavelet_cnn_4 = Dropout(self.dropout_rate)(wavelet_cnn_4)
-        wavelet_cnn_4 = Flatten()(wavelet_cnn_4)
+        # # Wavelet Expansion
+        # approx_stack, detail_stack = self.make_wavelet_expansion(input_)
+        # features_list = []
+        # features_list.extend(detail_stack)
+        # features_list.append(approx_stack[-1])
+        # wavelet_concatenate = Concatenate(axis=1)(features_list)
+        # wavelet_cnn_1 = Conv1D(16, kernel_size=3, strides=2, padding="same", name='wavelet_conv_1')(wavelet_concatenate)
+        # wavelet_cnn_1 = LeakyReLU(alpha=0.2)(wavelet_cnn_1)
+        # wavelet_cnn_1 = Dropout(self.dropout_rate)(wavelet_cnn_1)
+        # wavelet_cnn_2 = Conv1D(32, kernel_size=3, strides=2, padding="same", name='wavelet_conv_2')(wavelet_cnn_1)
+        # wavelet_cnn_2 = BatchNormalization(momentum=0.8)(wavelet_cnn_2)
+        # wavelet_cnn_2 = LeakyReLU(alpha=0.2)(wavelet_cnn_2)
+        # wavelet_cnn_2 = Dropout(self.dropout_rate)(wavelet_cnn_2)
+        # wavelet_cnn_3 = Conv1D(64, kernel_size=3, strides=2, padding="same", name='wavelet_conv_3')(wavelet_cnn_2)
+        # wavelet_cnn_3 = BatchNormalization(momentum=0.8)(wavelet_cnn_3)
+        # wavelet_cnn_3 = LeakyReLU(alpha=0.2)(wavelet_cnn_3)
+        # wavelet_cnn_3 = Dropout(self.dropout_rate)(wavelet_cnn_3)
+        # wavelet_cnn_4_out = Conv1D(32, kernel_size=3, strides=2, padding="same", name='wavelet_conv_4')(wavelet_cnn_3)
+        # wavelet_cnn_4 = BatchNormalization(momentum=0.8)(wavelet_cnn_4_out)
+        # wavelet_cnn_4 = LeakyReLU(alpha=0.2)(wavelet_cnn_4)
+        # wavelet_cnn_4 = Dropout(self.dropout_rate)(wavelet_cnn_4)
+        # wavelet_cnn_4 = Flatten()(wavelet_cnn_4)
         
         # Mini batch discrimination
         mini_disc = MinibatchDiscrimination(10,3)(flat)
         
         if self.use_mini_batch:
-            concatenate = Concatenate()([cnn_4,fft_cnn_4,envelope_cnn_4,wavelet_cnn_4,mini_disc])
+            #concatenate = Concatenate()([cnn_4,fft_cnn_4,envelope_cnn_4,wavelet_cnn_4,mini_disc])
+            concatenate = Concatenate()([cnn_4,fft_cnn_4,mini_disc])
         else:
-            concatenate = Concatenate()([cnn_4,fft_cnn_4,envelope_cnn_4,wavelet_cnn_4])
-        
+            #concatenate = Concatenate()([cnn_4,fft_cnn_4,envelope_cnn_4,wavelet_cnn_4])
+            concatenate = Concatenate()([cnn_4,fft_cnn_4,envelope_cnn_4])
+
+
         mlp = Dense(1,activation='sigmoid')(concatenate)
                 
         model = Model(input_, mlp)
@@ -357,8 +361,8 @@ class Discriminator():
             print('Critic model:')
             model.summary()
             
-            file_name = './output/critic.png'
-            plot_model(model, to_file=file_name, show_shapes = True)
+            # file_name = './output/critic.png'
+            # plot_model(model, to_file=file_name, show_shapes = True)
         
         return model
     

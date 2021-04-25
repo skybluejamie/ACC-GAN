@@ -7,6 +7,7 @@ from utils.plot_utils import plot_reference
 from models.dcgan import DCGAN
 from utils.data_utils import DataLoader
 
+
 def generate(args):
     # Create a new DCGAN object
     dcgan = DCGAN(config)
@@ -28,20 +29,22 @@ def generate(args):
     # Select a random batch of signals
     signals = data_loader.get_training_batch()
 
-    # Generate latent noise for generator
+    # # Generate latent noise for generator
     noise = dcgan.generate_noise(signals)
 
     # Generate prediction
     gen_signal = dcgan.generator.predict(noise)
-
+    #gen_signal = dcgan.generator.predict(signals)
+    
     # Evaluate prediction
     validated = dcgan.critic.predict(gen_signal)
 
     # Plot and save prediction
     plot_prediction(gen_signal)
-    gen_signal = np.reshape(gen_signal, (gen_signal.shape[0],gen_signal.shape[1]))
-    np.savetxt('./output/generated_signal.csv', gen_signal, delimiter=",")
+    # gen_signal = np.reshape(gen_signal, (gen_signal.shape[0], gen_signal.shape[1], gen_signal.shape[2]))
+    # np.savetxt('./output/generated_signal.csv', gen_signal, delimiter=",")
 	
+    return gen_signal
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='EMG-GAN - Generate EMG signals based on pre-trained model')
